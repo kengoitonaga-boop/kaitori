@@ -308,11 +308,34 @@
 <div class="overlay" id="sms-overlay">
   <div class="modal">
     <div class="modal-h">📱 SMS送信プレビュー</div>
-    <div class="modal-sub" id="sms-modal-sub">送信先: ---</div>
-    <div class="sms-body" id="sms-body"></div>
+
+    <!-- 宛先 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;font-family:'DM Mono',monospace;" id="sms-phone-display">---</div>
+      <button onclick="copyPhone()" id="copy-phone-btn"
+        style="padding:8px 12px;background:var(--s3);border:1.5px solid var(--border);border-radius:8px;color:var(--text2);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.15s;">
+        📋 宛先コピー
+      </button>
+    </div>
+
+    <!-- 文面 -->
+    <div style="position:relative;margin-bottom:10px">
+      <div class="sms-body" id="sms-body" style="margin-bottom:0;padding-right:100px"></div>
+      <button onclick="copyBody()" id="copy-body-btn"
+        style="position:absolute;top:8px;right:8px;padding:6px 10px;background:var(--s3);border:1.5px solid var(--border);border-radius:6px;color:var(--text2);font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s;">
+        📋 文面コピー
+      </button>
+    </div>
+
+    <!-- 一括コピー -->
+    <button onclick="copyAll()" id="copy-all-btn"
+      style="width:100%;padding:11px;background:rgba(0,229,176,0.12);border:1.5px solid var(--accent);border-radius:8px;color:var(--accent);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:all 0.15s;">
+      ✅ 宛先＋文面を一括コピー
+    </button>
+
     <div class="modal-row">
-      <button class="mbtn s" onclick="closeOverlay('sms-overlay')">キャンセル</button>
-      <button class="mbtn p" onclick="sendSMS()">📱 メッセージアプリで送信</button>
+      <button class="mbtn s" onclick="closeOverlay('sms-overlay')">閉じる</button>
+      <button class="mbtn p" onclick="sendSMS()">📱 メッセージアプリで開く</button>
     </div>
   </div>
 </div>
@@ -643,8 +666,36 @@ function openSMS(id) {
     msg = `${name} 様\n\n現在、${catStr}（${boxes}箱）を査定中です。\nもうしばらくお待ちください。\n\n受付番号: ${ticket}\n\n【駿河屋 町田旭町店】`;
   }
   document.getElementById('sms-body').textContent = msg;
-  document.getElementById('sms-modal-sub').textContent = `${smsTarget.phone}（${name} 様）`;
+  document.getElementById('sms-modal-sub') && (document.getElementById('sms-modal-sub').textContent = '');
+  document.getElementById('sms-phone-display').textContent = smsTarget.phone;
   document.getElementById('sms-overlay').classList.add('open');
+}
+
+// ===== COPY HELPERS =====
+function copyPhone() {
+  const phone = smsTarget ? smsTarget.phone : '';
+  navigator.clipboard.writeText(phone).then(() => flashBtn('copy-phone-btn', '✅ コピー済'));
+}
+
+function copyBody() {
+  const body = document.getElementById('sms-body').textContent;
+  navigator.clipboard.writeText(body).then(() => flashBtn('copy-body-btn', '✅ コピー済'));
+}
+
+function copyAll() {
+  const phone = smsTarget ? smsTarget.phone : '';
+  const body = document.getElementById('sms-body').textContent;
+  const text = `宛先: ${phone}\n\n${body}`;
+  navigator.clipboard.writeText(text).then(() => flashBtn('copy-all-btn', '✅ 宛先＋文面 コピー済！'));
+}
+
+function flashBtn(id, label) {
+  const btn = document.getElementById(id);
+  const orig = btn.textContent;
+  btn.textContent = label;
+  btn.style.borderColor = 'var(--accent)';
+  btn.style.color = 'var(--accent)';
+  setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 2000);
 }
 
 async function sendSMS() {
