@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>買取DESK v3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=DM+Mono:wght@400;500;700&display=swap');
+  :root {
+    --bg:#0a0c12;--s1:#13151f;--s2:#1c1f2e;--s3:#252840;
+    --border:#2a2d45;--accent:#00e5b0;--blue:#4488ff;--purple:#a855f7;
+    --warn:#f59e0b;--danger:#f43f5e;--text:#e2e5f0;--text2:#7b80a0;--text3:#4a4f6a;--r:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+  /* HEADER */
+  header{height:56px;background:var(--s1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:50;}
+  .logo{font-size:17px;font-weight:900;color:var(--accent);letter-spacing:-1px;}
+  .logo em{color:var(--text2);font-style:normal;font-weight:300;font-size:13px;margin-left:4px;}
+  .db-status{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
+  .db-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);}
+  .db-status.connected .db-dot{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  .db-status.connected{border-color:rgba(0,229,176,0.3);color:var(--accent);}
+  .db-status.error .db-dot{background:var(--danger);}
+  .db-status.error{border-color:rgba(244,63,94,0.3);color:var(--danger);}
+  .kpi-bar{margin-left:auto;display:flex;gap:0;}
+  .kpi{padding:0 18px;border-left:1px solid var(--border);text-align:center;display:flex;flex-direction:column;justify-content:center;height:56px;}
+  .kpi-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:700;line-height:1;}
+  .kpi-label{font-size:10px;color:var(--text2);letter-spacing:1px;margin-top:3px;}
+  .kpi.accent .kpi-val{color:var(--accent);}
+  .kpi.warn .kpi-val{color:var(--warn);}
+  .kpi.danger .kpi-val{color:var(--danger);}
+  .kpi.blue .kpi-val{color:var(--blue);}
+
+  /* LAYOUT */
+  .app{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 56px);}
+
+  /* LEFT */
+  .left{background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+  .left-tabs{display:flex;border-bottom:1px solid var(--border);}
+  .tab{flex:1;padding:12px;text-align:center;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;letter-spacing:0.5px;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .tab-content{display:none;flex-direction:column;flex:1;overflow:hidden;}
+  .tab-content.active{display:flex;}
+  .scroll{overflow-y:auto;flex:1;padding:16px;}
+
+  /* FORM */
+  .fg{margin-bottom:14px;}
+  .fl{display:block;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;}
+  .fi,.fs,.fta{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border-color 0.15s;}
+  .fi:focus,.fs:focus,.fta:focus{border-color:var(--accent);}
+  .fs option{background:var(--s2);}
+  .fta{resize:vertical;min-height:60px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .cat-btn{padding:8px 4px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text2);font-size:11px;font-family:inherit;cursor:pointer;text-align:center;transition:all 0.15s;}
+  .cat-btn:hover{border-color:var(--blue);color:var(--text);}
+  .cat-btn.on{border-color:var(--blue);background:rgba(68,136,255,0.12);color:var(--blue);font-weight:700;}
+  .box-counter{display:flex;align-items:center;gap:10px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;}
+  .box-num{font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--accent);min-width:40px;text-align:center;}
+  .box-btn{width:32px;height:32px;border-radius:6px;border:1.5px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+  .box-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .box-time-est{font-size:11px;color:var(--warn);font-weight:700;}
+  .submit-btn{width:100%;padding:13px;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;transition:all 0.2s;letter-spacing:0.5px;}
+  .submit-btn:hover{filter:brightness(1.1);transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,229,176,0.35);}
+  .submit-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+
+  /* BARCODE */
+  .print-section{background:var(--s2);border-radius:var(--r);padding:16px;margin-bottom:10px;border:1px solid var(--border);}
+  .print-title{font-size:11px;font-weight:700;color:var(--text2);letter-spacing:1px;margin-bottom:12px;text-transform:uppercase;}
+  .bc-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;}
+  .bc-item{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px;}
+  .bc-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);font-weight:700;}
+  .bc-desc{font-size:10px;color:var(--text2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .print-btn{padding:6px 12px;background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-family:inherit;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+  .print-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* RIGHT */
+  .right{display:flex;flex-direction:column;overflow:hidden;}
+  .demand-bar{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:20px;}
+  .demand-label{font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);white-space:nowrap;}
+  .demand-hours{font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--warn);}
+  .demand-unit{font-size:13px;color:var(--text2);}
+  .demand-track{flex:1;height:8px;background:var(--s3);border-radius:4px;overflow:hidden;position:relative;}
+  .demand-fill{height:100%;border-radius:4px;transition:width 0.6s ease;background:linear-gradient(90deg,var(--accent),var(--warn),var(--danger));}
+  .demand-markers{position:absolute;top:-18px;left:0;right:0;display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:'DM Mono',monospace;}
+  .capacity-info{display:flex;gap:16px;font-size:11px;color:var(--text2);white-space:nowrap;}
+  .cap-item strong{color:var(--text);}
+
+  /* KANBAN */
+  .kanban-wrap{flex:1;overflow-y:auto;padding:16px 20px;}
+  .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start;}
+  .col-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+  .col-name{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+  .col-badge{font-family:'DM Mono',monospace;font-size:11px;background:var(--s2);border-radius:20px;padding:2px 8px;color:var(--text2);}
+  .col-boxes{font-size:10px;color:var(--text3);}
+  .col-waiting .col-name{color:var(--warn);}
+  .col-checking .col-name{color:var(--blue);}
+  .col-pricing .col-name{color:var(--purple);}
+  .col-done .col-name{color:var(--accent);}
+
+  /* CARD */
+  .card{background:var(--s1);border:1.5px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;transition:all 0.2s;position:relative;overflow:hidden;}
+  .card:hover{border-color:var(--blue);box-shadow:0 6px 20px rgba(0,0,0,0.5);}
+  .card-stripe{position:absolute;left:0;top:0;bottom:0;width:3px;}
+  .col-waiting .card-stripe{background:var(--warn);}
+  .col-checking .card-stripe{background:var(--blue);}
+  .col-pricing .card-stripe{background:var(--purple);}
+  .col-done .card-stripe{background:var(--accent);}
+  .card-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
+  .card-ticket{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);background:rgba(0,229,176,0.08);border:1px solid rgba(0,229,176,0.2);border-radius:4px;padding:2px 6px;white-space:nowrap;}
+  .card-name{font-size:13px;font-weight:700;flex:1;}
+  .card-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);white-space:nowrap;}
+  .card-time.late{color:var(--danger);}
+  .box-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:4px 8px;font-size:11px;margin-bottom:8px;}
+  .box-badge-num{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--warn);}
+  .cat-tags{margin-bottom:8px;}
+  .ctag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;margin-right:3px;margin-bottom:3px;}
+  .t-kaden{background:rgba(68,136,255,0.15);color:#6ba0ff;}
+  .t-brand{background:rgba(168,85,247,0.15);color:#c084fc;}
+  .t-kinen{background:rgba(244,63,94,0.15);color:#fb7185;}
+  .t-kagu{background:rgba(0,229,176,0.15);color:#00e5b0;}
+  .t-koin{background:rgba(245,158,11,0.15);color:#fbbf24;}
+  .t-other{background:rgba(123,128,160,0.15);color:#7b80a0;}
+  .card-note{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px;}
+  .wbar{height:3px;background:var(--s3);border-radius:2px;margin-bottom:8px;overflow:hidden;}
+  .wfill{height:100%;border-radius:2px;transition:width 0.4s;}
+  .card-acts{display:flex;gap:5px;}
+  .act{flex:1;padding:6px 4px;border-radius:6px;border:none;font-family:inherit;font-size:10px;font-weight:700;cursor:pointer;transition:all 0.15s;text-align:center;}
+  .act-next{background:var(--blue);color:#fff;}
+  .act-next:hover{filter:brightness(1.2);}
+  .act-sms{background:rgba(0,229,176,0.1);color:var(--accent);border:1px solid rgba(0,229,176,0.3);}
+  .act-sms:hover{background:rgba(0,229,176,0.2);}
+  .act-del{background:rgba(244,63,94,0.1);color:var(--danger);border:1px solid rgba(244,63,94,0.2);}
+  .act-del:hover{background:rgba(244,63,94,0.2);}
+  .empty-col{border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;color:var(--text3);font-size:12px;}
+
+  /* MODAL */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+  .overlay.open{display:flex;}
+  .modal{background:var(--s1);border:1.5px solid var(--border);border-radius:14px;padding:24px;width:460px;max-width:95vw;animation:up 0.2s ease;}
+  @keyframes up{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
+  .modal-h{font-size:16px;font-weight:700;margin-bottom:4px;}
+  .modal-sub{font-size:12px;color:var(--text2);margin-bottom:16px;}
+  .sms-body{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:14px;font-size:12px;line-height:1.8;white-space:pre-wrap;margin-bottom:14px;max-height:180px;overflow-y:auto;}
+  .modal-row{display:flex;gap:8px;}
+  .mbtn{flex:1;padding:11px;border-radius:8px;border:none;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;}
+  .mbtn.p{background:var(--accent);color:#000;}
+  .mbtn.p:hover{filter:brightness(1.1);}
+  .mbtn.s{background:var(--s3);color:var(--text2);}
+
+  /* PRINT MODAL */
+  .print-modal{background:#fff;color:#000;border-radius:10px;padding:20px;width:360px;max-height:90vh;overflow-y:auto;}
+  .print-card{border:2px solid #000;border-radius:6px;padding:12px;margin-bottom:10px;break-inside:avoid;}
+  .print-card-header{font-size:10px;font-weight:700;color:#555;letter-spacing:1px;margin-bottom:6px;}
+  .print-card-name{font-size:16px;font-weight:900;margin-bottom:4px;}
+  .print-card-info{font-size:11px;color:#555;margin-bottom:8px;}
+  .print-act-row{display:flex;gap:8px;margin-top:10px;}
+  @media print{
+    body>*:not(.overlay){display:none!important;}
+    .overlay.open{display:block!important;backdrop-filter:none!important;background:none!important;position:static!important;}
+    .print-modal{box-shadow:none;width:100%;max-height:none;}
+    .print-act-row{display:none;}
+  }
+
+  /* LOADING */
+  .loading-overlay{position:fixed;inset:0;background:rgba(10,12,18,0.85);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+  .loading-overlay.hidden{display:none;}
+  .spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{font-size:13px;color:var(--text2);}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--s2);border:1.5px solid var(--accent);border-radius:8px;padding:12px 18px;font-size:12px;font-weight:600;color:var(--accent);z-index:400;transform:translateX(130%);transition:transform 0.3s ease;box-shadow:0 4px 20px rgba(0,229,176,0.25);}
+  .toast.show{transform:translateX(0);}
+  .toast.err{border-color:var(--danger);color:var(--danger);}
+
+  ::-webkit-scrollbar{width:5px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Supabaseに接続中...</div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">買取DESK <em>v3 · クラウド版</em></div>
+  <div class="db-status" id="db-status">
+    <div class="db-dot"></div>
+    <span id="db-label">接続中...</span>
+  </div>
+  <div class="kpi-bar">
+    <div class="kpi warn"><div class="kpi-val" id="kpi-boxes">0</div><div class="kpi-label">未査定 箱数</div></div>
+    <div class="kpi danger"><div class="kpi-val" id="kpi-hours">0<span style="font-size:14px">h</span></div><div class="kpi-label">必要工数</div></div>
+    <div class="kpi blue"><div class="kpi-val" id="kpi-pending">0</div><div class="kpi-label">対応中 件数</div></div>
+    <div class="kpi accent"><div class="kpi-val" id="kpi-done">0</div><div class="kpi-label">本日 精算済</div></div>
+  </div>
+</header>
+
+<div class="app">
+  <!-- LEFT -->
+  <div class="left">
+    <div class="left-tabs">
+      <div class="tab active" onclick="switchTab('form')">＋ 新規受付</div>
+      <div class="tab" onclick="switchTab('barcodes')">🏷 バーコード</div>
+    </div>
+    <div class="tab-content active" id="tab-form">
+      <div class="scroll">
+        <div class="fg"><label class="fl">お客様氏名</label><input type="text" class="fi" id="f-name" placeholder="例: 田中 太郎"></div>
+        <div class="fg"><label class="fl">携帯電話番号</label><input type="tel" class="fi" id="f-phone" placeholder="090-0000-0000"></div>
+        <div class="fg">
+          <label class="fl">買取カテゴリ（複数可）</label>
+          <div class="row3">
+            <button class="cat-btn" onclick="toggleCat(this,'家電')">📺 家電</button>
+            <button class="cat-btn" onclick="toggleCat(this,'ブランド')">👜 ブランド</button>
+            <button class="cat-btn" onclick="toggleCat(this,'貴金属')">💍 貴金属</button>
+            <button class="cat-btn" onclick="toggleCat(this,'切手・古銭')">🪙 古銭</button>
+            <button class="cat-btn" onclick="toggleCat(this,'家具')">🛋 家具</button>
+            <button class="cat-btn" onclick="toggleCat(this,'その他')">📦 その他</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">持込 箱数 <span style="color:var(--warn)">（1箱=査定1時間目安）</span></label>
+          <div class="box-counter">
+            <button class="box-btn" onclick="changeBox(-1)">−</button>
+            <div style="flex:1;text-align:center"><div class="box-num" id="box-num">1</div><div style="font-size:11px;color:var(--text2)">箱</div></div>
+            <button class="box-btn" onclick="changeBox(1)">＋</button>
+            <div style="border-left:1px solid var(--border);padding-left:12px;text-align:center">
+              <div class="box-time-est" id="box-time">1時間</div>
+              <div style="font-size:10px;color:var(--text2)">査定目安</div>
+            </div>
+          </div>
+        </div>
+        <div class="fg"><label class="fl">内容メモ</label><textarea class="fta" id="f-note" placeholder="例: iPhone15 Pro × 1、バッグ × 2"></textarea></div>
+        <div class="fg row2">
+          <div><label class="fl">担当スタッフ</label>
+            <select class="fs" id="f-staff"><option value="">選択</option><option>田中</option><option>佐藤</option><option>鈴木</option><option>山田</option></select>
+          </div>
+          <div><label class="fl">優先度</label>
+            <select class="fs" id="f-priority"><option value="normal">通常</option><option value="high">急ぎ</option></select>
+          </div>
+        </div>
+        <button class="submit-btn" id="submit-btn" onclick="registerCustomer()">受付登録 → バーコード発行</button>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <button class="print-btn" style="width:100%;padding:10px;font-size:12px" onclick="addDemo()">📋 デモデータ追加</button>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-barcodes">
+      <div class="scroll"><div id="bc-list-container"><div style="color:var(--text3);font-size:12px;text-align:center;padding:30px">受付登録するとここに表示されます</div></div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="demand-bar">
+      <div>
+        <div class="demand-label">📦 査定工数需要</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div class="demand-hours" id="dem-hours">0</div>
+          <div class="demand-unit">時間 必要</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)" id="dem-formula">未査定箱数 0箱 × 1時間/箱</div>
+      </div>
+      <div style="flex:1;padding:0 16px">
+        <div class="demand-markers"><span>0h</span><span>4h</span><span>8h</span><span>12h</span><span>16h+</span></div>
+        <div class="demand-track" style="margin-top:22px"><div class="demand-fill" id="dem-fill" style="width:0%"></div></div>
+      </div>
+      <div class="capacity-info">
+        <div class="cap-item">スタッフ<br><strong>1</strong>名</div>
+        <div class="cap-item">本日残<br><strong>8</strong>h</div>
+        <div class="cap-item">余裕<br><strong id="cap-status" style="color:var(--accent)">あり</strong></div>
+      </div>
+    </div>
+    <div class="kanban-wrap">
+      <div class="kanban">
+        <div class="col-waiting">
+          <div class="col-head"><span class="col-name">⏳ 受付待ち</span><div style="display:flex;gap:6px;align-items:center"><span class="col-boxes" id="bx-waiting">□ 0箱</span><span class="col-badge" id="cnt-waiting">0</span></div></div>
+          <div id="cards-waiting"></div>
+        </div>
+        <div class="col-checking">
+          <div class="col-head"><span class="col-name">🔍 査定中</span><div style="display:flex;gap:6px;align-items:center"><span class="col-boxes" id="bx-checking">□ 0箱</span><span class="col-badge" id="cnt-checking">0</span></div></div>
+          <div id="cards-checking"></div>
+        </div>
+        <div class="col-pricing">
+          <div class="col-head"><span class="col-name">💬 金額提示</span><div style="display:flex;gap:6px;align-items:center"><span class="col-boxes" id="bx-pricing">□ 0箱</span><span class="col-badge" id="cnt-pricing">0</span></div></div>
+          <div id="cards-pricing"></div>
+        </div>
+        <div class="col-done">
+          <div class="col-head"><span class="col-name">✅ 精算完了</span><div style="display:flex;gap:6px;align-items:center"><span class="col-boxes" id="bx-done">□ 0箱</span><span class="col-badge" id="cnt-done">0</span></div></div>
+          <div id="cards-done"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SMS MODAL -->
+<div class="overlay" id="sms-overlay">
+  <div class="modal">
+    <div class="modal-h">📱 SMS送信プレビュー</div>
+    <div class="modal-sub" id="sms-modal-sub">送信先: ---</div>
+    <div class="sms-body" id="sms-body"></div>
+    <div class="modal-row">
+      <button class="mbtn s" onclick="closeOverlay('sms-overlay')">キャンセル</button>
+      <button class="mbtn p" onclick="sendSMS()">📱 メッセージアプリで送信</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT MODAL -->
+<div class="overlay" id="print-overlay">
+  <div class="print-modal">
+    <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:#000">🏷 バーコードラベル印刷</div>
+    <div id="print-cards"></div>
+    <div class="print-act-row">
+      <button style="flex:1;padding:10px;border-radius:8px;border:none;background:#eee;cursor:pointer" onclick="closeOverlay('print-overlay')">閉じる</button>
+      <button style="flex:1;padding:10px;border-radius:8px;border:none;background:#000;color:#fff;cursor:pointer;font-weight:700" onclick="window.print()">🖨 印刷</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== SUPABASE CONFIG =====
+const SUPABASE_URL = 'https://gqsbihpcfutcutzfcyxz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_hdyP2qiR3kIY8VZVcq-btQ_ZHR1jYew';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ===== STATE =====
+let customers = [];
+let selectedCats = [];
+let boxCount = 1;
+let smsTarget = null;
+let realtimeChannel = null;
+
+const STATUS_NEXT = { waiting:'checking', checking:'pricing', pricing:'done', done:null };
+const STATUS_NEXT_LABEL = { waiting:'査定開始▶', checking:'金額提示▶', pricing:'精算完了▶', done:null };
+const CAT_CLASS = { '家電':'t-kaden','ブランド':'t-brand','貴金属':'t-kinen','切手・古銭':'t-koin','家具':'t-kagu','その他':'t-other' };
+
+// ===== INIT =====
+async function init() {
+  try {
+    // テーブル存在確認 & データ取得
+    const { data, error } = await sb
+      .from('kaitori_customers')
+      .select('*')
+      .gte('created_at', new Date().toISOString().slice(0,10)) // 本日分のみ
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      // テーブルが存在しない場合は作成を促す
+      if (error.code === '42P01') {
+        setDbStatus('error', 'テーブル未作成');
+        showToast('⚠️ 下のSQLをSupabaseで実行してください', true);
+        document.getElementById('loading').classList.add('hidden');
+        showSQLGuide();
+        return;
+      }
+      throw error;
+    }
+
+    customers = data.map(dbToLocal);
+    setDbStatus('connected', 'DB接続済');
+    setupRealtime();
+    render();
+  } catch(e) {
+    console.error(e);
+    setDbStatus('error', '接続エラー');
+    showToast('❌ DB接続に失敗しました: ' + e.message, true);
+  }
+  document.getElementById('loading').classList.add('hidden');
+}
+
+// DB行 → ローカル形式
+function dbToLocal(row) {
+  return {
+    id: row.id,
+    ticket: row.ticket,
+    name: row.name,
+    phone: row.phone,
+    cats: row.cats || [],
+    boxes: row.boxes || 1,
+    note: row.note || '',
+    staff: row.staff || '',
+    priority: row.priority || 'normal',
+    status: row.status,
+    createdAt: new Date(row.created_at),
+    smsSent: row.sms_sent || false
+  };
+}
+
+// ===== REALTIME（複数スタッフ同期） =====
+function setupRealtime() {
+  realtimeChannel = sb
+    .channel('kaitori-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'kaitori_customers' }, payload => {
+      if (payload.eventType === 'INSERT') {
+        const exists = customers.find(c => c.id === payload.new.id);
+        if (!exists) customers.push(dbToLocal(payload.new));
+      } else if (payload.eventType === 'UPDATE') {
+        const idx = customers.findIndex(c => c.id === payload.new.id);
+        if (idx >= 0) customers[idx] = dbToLocal(payload.new);
+      } else if (payload.eventType === 'DELETE') {
+        customers = customers.filter(c => c.id !== payload.old.id);
+      }
+      render();
+    })
+    .subscribe();
+}
+
+// ===== DB STATUS =====
+function setDbStatus(type, label) {
+  const el = document.getElementById('db-status');
+  el.className = 'db-status ' + type;
+  document.getElementById('db-label').textContent = label;
+}
+
+// ===== SQL GUIDE（初回セットアップ） =====
+function showSQLGuide() {
+  const sql = `-- Supabaseの「SQL Editor」で以下を実行してください
+CREATE TABLE kaitori_customers (
+  id BIGSERIAL PRIMARY KEY,
+  ticket TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  cats TEXT[] DEFAULT '{}',
+  boxes INTEGER DEFAULT 1,
+  note TEXT DEFAULT '',
+  staff TEXT DEFAULT '',
+  priority TEXT DEFAULT 'normal',
+  status TEXT DEFAULT 'waiting',
+  sms_sent BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- リアルタイム有効化
+ALTER PUBLICATION supabase_realtime ADD TABLE kaitori_customers;
+
+-- RLS（行レベルセキュリティ）を無効化（社内ツールのため）
+ALTER TABLE kaitori_customers DISABLE ROW LEVEL SECURITY;`;
+
+  const div = document.createElement('div');
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;display:flex;align-items:center;justify-content:center;';
+  div.innerHTML = `
+    <div style="background:var(--s1);border:1.5px solid var(--accent);border-radius:14px;padding:28px;width:600px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+      <div style="font-size:16px;font-weight:700;color:var(--accent);margin-bottom:8px">🔧 初回セットアップ</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px">
+        Supabaseの <strong style="color:var(--text)">SQL Editor</strong> を開いて、以下のSQLを貼り付けて「Run」を実行してください。
+      </div>
+      <pre style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:11px;color:var(--accent);font-family:'DM Mono',monospace;overflow-x:auto;line-height:1.6;white-space:pre-wrap">${sql}</pre>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent).then(()=>showToast('✅ コピーしました'))" style="flex:1;padding:11px;background:var(--s3);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;">📋 コピー</button>
+        <button onclick="this.closest('div[style]').remove();init();" style="flex:1;padding:11px;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">✅ 実行済み・再接続</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+// ===== BOX COUNT =====
+function changeBox(d) {
+  boxCount = Math.max(1, Math.min(20, boxCount + d));
+  document.getElementById('box-num').textContent = boxCount;
+  document.getElementById('box-time').textContent = boxCount + '時間';
+}
+
+// ===== CATEGORY =====
+function toggleCat(btn, cat) {
+  btn.classList.toggle('on');
+  if (btn.classList.contains('on')) selectedCats.push(cat);
+  else selectedCats = selectedCats.filter(c => c !== cat);
+}
+
+// ===== チケット番号生成 =====
+function genTicket() {
+  const d = new Date();
+  const ymd = String(d.getFullYear()).slice(2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+  const rand = String(Math.floor(Math.random()*9000)+1000);
+  return 'K' + ymd + '-' + rand;
+}
+
+// ===== REGISTER =====
+async function registerCustomer() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  if (!name || !phone) { showToast('⚠️ 氏名と電話番号は必須です', true); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '登録中...';
+
+  const ticket = genTicket();
+  const row = {
+    ticket, name, phone,
+    cats: [...selectedCats],
+    boxes: boxCount,
+    note: document.getElementById('f-note').value.trim(),
+    staff: document.getElementById('f-staff').value,
+    priority: document.getElementById('f-priority').value,
+    status: 'waiting',
+    sms_sent: false
+  };
+
+  const { data, error } = await sb.from('kaitori_customers').insert(row).select().single();
+
+  btn.disabled = false;
+  btn.textContent = '受付登録 → バーコード発行';
+
+  if (error) { showToast('❌ 登録失敗: ' + error.message, true); return; }
+
+  const c = dbToLocal(data);
+  // リアルタイムで来るが即時表示のため手動追加
+  if (!customers.find(x => x.id === c.id)) customers.push(c);
+
+  showPrintForCustomer(c);
+  resetForm();
+  render();
+  showToast(`✅ ${name} 様 受付完了 / ${ticket}`);
+  switchTab('barcodes');
+}
+
+function resetForm() {
+  ['f-name','f-phone','f-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-staff').value = '';
+  document.getElementById('f-priority').value = 'normal';
+  selectedCats = [];
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('on'));
+  boxCount = 1;
+  document.getElementById('box-num').textContent = '1';
+  document.getElementById('box-time').textContent = '1時間';
+}
+
+// ===== RENDER =====
+function render() {
+  const cols = { waiting:[], checking:[], pricing:[], done:[] };
+  customers.forEach(c => cols[c.status] && cols[c.status].push(c));
+
+  Object.keys(cols).forEach(status => {
+    const el = document.getElementById('cards-' + status);
+    const cnt = document.getElementById('cnt-' + status);
+    const bx = document.getElementById('bx-' + status);
+    cnt.textContent = cols[status].length;
+    const totalBoxes = cols[status].reduce((a,c) => a + c.boxes, 0);
+    bx.textContent = '□ ' + totalBoxes + '箱';
+    el.innerHTML = cols[status].length === 0
+      ? '<div class="empty-col">なし</div>'
+      : cols[status].map(c => cardHTML(c, status)).join('');
+  });
+
+  const pending = customers.filter(c => c.status !== 'done');
+  const done = customers.filter(c => c.status === 'done');
+  const totalBoxes = pending.reduce((a,c) => a + c.boxes, 0);
+  const hours = totalBoxes;
+
+  document.getElementById('kpi-boxes').textContent = totalBoxes;
+  document.getElementById('kpi-hours').innerHTML = hours + '<span style="font-size:14px">h</span>';
+  document.getElementById('kpi-pending').textContent = pending.length;
+  document.getElementById('kpi-done').textContent = done.length;
+  document.getElementById('dem-hours').textContent = hours;
+  document.getElementById('dem-formula').textContent = `未査定箱数 ${totalBoxes}箱 × 1時間/箱`;
+  document.getElementById('dem-fill').style.width = Math.min(100,(hours/16)*100) + '%';
+
+  const capEl = document.getElementById('cap-status');
+  if (hours > 8) { capEl.textContent='超過'; capEl.style.color='var(--danger)'; }
+  else if (hours > 5) { capEl.textContent='注意'; capEl.style.color='var(--warn)'; }
+  else { capEl.textContent='あり'; capEl.style.color='var(--accent)'; }
+
+  renderBarcodeTab();
+}
+
+function cardHTML(c, status) {
+  const mins = Math.floor((new Date() - c.createdAt) / 60000);
+  const label = mins < 60 ? mins + '分' : Math.floor(mins/60) + 'h' + (mins%60) + 'm';
+  const isLate = mins > 30 && status !== 'done';
+  const wPct = Math.min(100,(mins/60)*100);
+  const wColor = mins < 20 ? 'var(--accent)' : mins < 40 ? 'var(--warn)' : 'var(--danger)';
+  const nextStatus = STATUS_NEXT[status];
+  const cats = c.cats.map(cat => `<span class="ctag ${CAT_CLASS[cat]||'t-other'}">${cat}</span>`).join('');
+  return `<div class="card">
+    <div class="card-stripe"></div>
+    <div class="card-top">
+      <span class="card-ticket">${c.ticket}</span>
+      <span class="card-name">${c.name}様</span>
+      <span class="card-time ${isLate?'late':''}">${label}</span>
+    </div>
+    <div class="box-badge"><span>📦</span><span class="box-badge-num">${c.boxes}</span><span style="color:var(--text2);font-size:11px">箱</span><span style="font-size:10px;color:var(--text2)">/ 約${c.boxes}時間</span></div>
+    ${c.cats.length ? `<div class="cat-tags">${cats}</div>` : ''}
+    ${c.note ? `<div class="card-note">${c.note}</div>` : ''}
+    <div class="wbar"><div class="wfill" style="width:${wPct}%;background:${wColor}"></div></div>
+    <div class="card-acts">
+      ${nextStatus ? `<button class="act act-next" onclick="advance(${c.id})">${STATUS_NEXT_LABEL[status]}</button>` : ''}
+      <button class="act act-sms" onclick="openSMS(${c.id})">📱SMS</button>
+      <button class="act act-del" onclick="removeCard(${c.id})">✕</button>
+    </div>
+  </div>`;
+}
+
+// ===== ADVANCE =====
+async function advance(id) {
+  const c = customers.find(x => x.id === id);
+  if (!c || !STATUS_NEXT[c.status]) return;
+  const newStatus = STATUS_NEXT[c.status];
+  const { error } = await sb.from('kaitori_customers').update({ status: newStatus, updated_at: new Date() }).eq('id', id);
+  if (error) { showToast('❌ 更新失敗: ' + error.message, true); return; }
+  c.status = newStatus;
+  render();
+  if (newStatus === 'pricing') openSMS(id);
+  else showToast(`📋 ${c.name} 様 → ${newStatus === 'checking' ? '査定中' : newStatus === 'done' ? '精算完了' : newStatus}`);
+}
+
+async function removeCard(id) {
+  if (!confirm('この案件を取消しますか？')) return;
+  const { error } = await sb.from('kaitori_customers').delete().eq('id', id);
+  if (error) { showToast('❌ 削除失敗: ' + error.message, true); return; }
+  customers = customers.filter(x => x.id !== id);
+  render();
+}
+
+// ===== SMS =====
+function openSMS(id) {
+  smsTarget = customers.find(x => x.id === id);
+  if (!smsTarget) return;
+  const { name, cats, boxes, ticket, status } = smsTarget;
+  const catStr = cats.join('・') || '商品';
+  let msg;
+  if (status === 'done') {
+    msg = `${name} 様\n\nお待たせいたしました。\n${catStr}の精算が完了いたしました。\nお受け取りにお越しください。\n\n【駿河屋 町田旭町店】`;
+  } else if (status === 'pricing') {
+    msg = `${name} 様\n\n${catStr}（${boxes}箱）の査定が完了しました。\n金額をご提示しますのでカウンターまでお越しください。\n\n受付番号: ${ticket}\n\n【駿河屋 町田旭町店】`;
+  } else {
+    msg = `${name} 様\n\n現在、${catStr}（${boxes}箱）を査定中です。\nもうしばらくお待ちください。\n\n受付番号: ${ticket}\n\n【駿河屋 町田旭町店】`;
+  }
+  document.getElementById('sms-body').textContent = msg;
+  document.getElementById('sms-modal-sub').textContent = `${smsTarget.phone}（${name} 様）`;
+  document.getElementById('sms-overlay').classList.add('open');
+}
+
+async function sendSMS() {
+  if (!smsTarget) return;
+  const phone = smsTarget.phone.replace(/[^\d]/g, '');
+  const body = document.getElementById('sms-body').textContent;
+  const url = `sms:${phone}&body=${encodeURIComponent(body)}`;
+  await sb.from('kaitori_customers').update({ sms_sent: true, updated_at: new Date() }).eq('id', smsTarget.id);
+  smsTarget.smsSent = true;
+  const name = smsTarget.name;
+  closeOverlay('sms-overlay');
+  render();
+  showToast(`📱 メッセージアプリを開きます（${name}様）`);
+  window.location.href = url;
+}
+
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); smsTarget = null; }
+
+// ===== BARCODE TAB =====
+function renderBarcodeTab() {
+  const container = document.getElementById('bc-list-container');
+  if (customers.length === 0) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:30px">受付登録するとここに表示されます</div>';
+    return;
+  }
+  container.innerHTML = customers.slice().reverse().map(c => `
+    <div class="print-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div><div style="font-size:12px;font-weight:700;color:var(--text)">${c.name} 様</div>
+        <div style="font-size:10px;color:var(--text2)">${c.cats.join('・')||'—'} / ${c.boxes}箱</div></div>
+        <button class="print-btn" onclick="showPrintForCustomer(customers.find(x=>x.id===${c.id}))">🖨 印刷</button>
+      </div>
+      <div class="bc-list" id="bc-inlist-${c.id}"></div>
+    </div>`).join('');
+
+  customers.forEach(c => {
+    const cont = document.getElementById('bc-inlist-' + c.id);
+    if (!cont) return;
+    cont.innerHTML = Array.from({length:c.boxes},(_,i) => `
+      <div class="bc-item">
+        <svg id="bc-tab-${c.id}-${i}" style="max-width:140px"></svg>
+        <div class="bc-info">
+          <div class="bc-num">${c.ticket}-${String(i+1).padStart(2,'0')}</div>
+          <div class="bc-desc">${c.name} 様 / ${i+1}箱目</div>
+        </div>
+      </div>`).join('');
+    Array.from({length:c.boxes},(_,i) => {
+      const el = document.getElementById(`bc-tab-${c.id}-${i}`);
+      if (el) generateBarcode(`${c.ticket}-${String(i+1).padStart(2,'0')}`, el);
+    });
+  });
+}
+
+function generateBarcode(code, el) {
+  try { JsBarcode(el, code, { format:'CODE128', width:1.5, height:36, displayValue:true, fontSize:10, margin:4, background:'#ffffff', lineColor:'#000000' }); }
+  catch(e) { console.error(e); }
+}
+
+// ===== PRINT MODAL =====
+function showPrintForCustomer(c) {
+  if (!c) return;
+  document.getElementById('print-cards').innerHTML = Array.from({length:c.boxes},(_,i) => `
+    <div class="print-card">
+      <div class="print-card-header">買取受付票 / ${c.ticket}-${String(i+1).padStart(2,'0')}</div>
+      <div class="print-card-name">${c.name} 様</div>
+      <div class="print-card-info">${c.cats.join('・')||'—'} / ${c.boxes}箱中 ${i+1}箱目<br>受付: ${c.createdAt.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}${c.staff?' / 担当: '+c.staff:''}</div>
+      <svg id="bc-print-${c.id}-${i}" style="width:100%;max-height:60px"></svg>
+    </div>`).join('');
+  document.getElementById('print-overlay').classList.add('open');
+  setTimeout(() => {
+    Array.from({length:c.boxes},(_,i) => {
+      const el = document.getElementById(`bc-print-${c.id}-${i}`);
+      if (el) generateBarcode(`${c.ticket}-${String(i+1).padStart(2,'0')}`, el);
+    });
+  }, 50);
+}
+
+// ===== TAB SWITCH =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='form')||(i===1&&tab==='barcodes')));
+  document.querySelectorAll('.tab-content').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='form')||(i===1&&tab==='barcodes')));
+  if (tab === 'barcodes') renderBarcodeTab();
+}
+
+// ===== DEMO =====
+async function addDemo() {
+  const demos = [
+    { name:'山田 花子', phone:'090-1111-2222', cats:['ブランド','貴金属'], boxes:3, note:'グッチバッグ×1、金指輪×3', staff:'田中', status:'waiting' },
+    { name:'佐藤 一郎', phone:'080-3333-4444', cats:['家電'], boxes:5, note:'iPhone×2、iPad×1、MacBook×2', staff:'佐藤', status:'checking' },
+    { name:'鈴木 美咲', phone:'070-5555-6666', cats:['切手・古銭'], boxes:2, note:'記念切手コレクション', staff:'鈴木', status:'pricing' },
+  ];
+  const rows = demos.map(d => ({ ...d, ticket: genTicket(), priority:'normal', sms_sent:false }));
+  const { error } = await sb.from('kaitori_customers').insert(rows);
+  if (error) { showToast('❌ デモ追加失敗: ' + error.message, true); return; }
+  showToast('📋 デモデータを追加しました');
+  await init();
+}
+
+// ===== TOAST =====
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr?' err':'');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ===== START =====
+setInterval(() => render(), 30000);
+init();
+</script>
+</body>
+</html>
