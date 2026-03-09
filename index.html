@@ -125,6 +125,7 @@
   .t-kagu{background:rgba(0,229,176,0.15);color:#00e5b0;}
   .t-koin{background:rgba(245,158,11,0.15);color:#fbbf24;}
   .t-other{background:rgba(123,128,160,0.15);color:#7b80a0;}
+  .t-blue{background:rgba(68,136,255,0.15);color:#6ba0ff;}
   .card-note{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px;}
   .wbar{height:3px;background:var(--s3);border-radius:2px;margin-bottom:8px;overflow:hidden;}
   .wfill{height:100%;border-radius:2px;transition:width 0.4s;}
@@ -219,11 +220,11 @@
         <div class="fg">
           <label class="fl">買取カテゴリ（複数可）</label>
           <div class="row3">
-            <button class="cat-btn" onclick="toggleCat(this,'家電')">📺 家電</button>
-            <button class="cat-btn" onclick="toggleCat(this,'ブランド')">👜 ブランド</button>
-            <button class="cat-btn" onclick="toggleCat(this,'貴金属')">💍 貴金属</button>
-            <button class="cat-btn" onclick="toggleCat(this,'切手・古銭')">🪙 古銭</button>
-            <button class="cat-btn" onclick="toggleCat(this,'家具')">🛋 家具</button>
+            <button class="cat-btn" onclick="toggleCat(this,'雑貨')">🛍 雑貨</button>
+            <button class="cat-btn" onclick="toggleCat(this,'フィギュア')">🗿 フィギュア</button>
+            <button class="cat-btn" onclick="toggleCat(this,'プラモデル')">🔧 プラモデル</button>
+            <button class="cat-btn" onclick="toggleCat(this,'メディア')">💿 メディア</button>
+            <button class="cat-btn" onclick="toggleCat(this,'ゲーム')">🎮 ゲーム</button>
             <button class="cat-btn" onclick="toggleCat(this,'その他')">📦 その他</button>
           </div>
         </div>
@@ -346,7 +347,7 @@ let realtimeChannel = null;
 
 const STATUS_NEXT = { waiting:'checking', checking:'pricing', pricing:'done', done:null };
 const STATUS_NEXT_LABEL = { waiting:'査定開始▶', checking:'金額提示▶', pricing:'精算完了▶', done:null };
-const CAT_CLASS = { '家電':'t-kaden','ブランド':'t-brand','貴金属':'t-kinen','切手・古銭':'t-koin','家具':'t-kagu','その他':'t-other' };
+const CAT_CLASS = { '雑貨':'t-kagu','フィギュア':'t-brand','プラモデル':'t-blue','メディア':'t-koin','ゲーム':'t-kaden','その他':'t-other' };
 
 // ===== INIT =====
 async function init() {
@@ -731,9 +732,9 @@ function switchTab(tab) {
 // ===== DEMO =====
 async function addDemo() {
   const demos = [
-    { name:'山田 花子', phone:'090-1111-2222', cats:['ブランド','貴金属'], boxes:3, note:'グッチバッグ×1、金指輪×3', staff:'田中', status:'waiting' },
-    { name:'佐藤 一郎', phone:'080-3333-4444', cats:['家電'], boxes:5, note:'iPhone×2、iPad×1、MacBook×2', staff:'佐藤', status:'checking' },
-    { name:'鈴木 美咲', phone:'070-5555-6666', cats:['切手・古銭'], boxes:2, note:'記念切手コレクション', staff:'鈴木', status:'pricing' },
+    { name:'山田 花子', phone:'090-1111-2222', cats:['フィギュア','雑貨'], boxes:3, note:'フィギュア×5、雑貨まとめ', staff:'田中', status:'waiting' },
+    { name:'佐藤 一郎', phone:'080-3333-4444', cats:['ゲーム'], boxes:5, note:'Switch×1、PS5ソフト×10', staff:'佐藤', status:'checking' },
+    { name:'鈴木 美咲', phone:'070-5555-6666', cats:['メディア','プラモデル'], boxes:2, note:'DVD×20、ガンプラ×3', staff:'鈴木', status:'pricing' },
   ];
   const rows = demos.map(d => ({ ...d, ticket: genTicket(), priority:'normal', sms_sent:false }));
   const { error } = await sb.from('kaitori_customers').insert(rows);
